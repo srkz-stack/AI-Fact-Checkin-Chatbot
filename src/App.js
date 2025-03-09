@@ -18,9 +18,8 @@ function Chatbot() {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // API key should be stored in environment variables
-  // For development, create a .env file with: REACT_APP_GEMINI_API_KEY=your_key_here
-  const API_KEY = process.env.REACT_APP_GEMINI_API_KEY || "AIzaSyB6VIg08vrxlVP0TvIsItpF6JIawed7R54";
+  // Hardcoded API key as requested
+  const API_KEY = "AIzaSyB6VIg08vrxlVP0TvIsItpF6JIawed7R54";
 
   const toggleTheme = () => {
     setIsDarkMode((prevState) => !prevState);
@@ -77,57 +76,13 @@ function Chatbot() {
     }
   }, [messages]);
 
-  // Initialize Gemini AI model with safety settings
-  const initializeGeminiModel = () => {
-    try {
-      const safetySettings = [
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-      ];
-      const generationConfig = { maxOutputTokens: 200, temperature: 0.9, topP: 0.1, topK: 16 };
-      
-      const genAI = new GoogleGenerativeAI(API_KEY);
-      return genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash", 
-        safetySettings, 
-        generationConfig 
-      });
-    } catch (error) {
-      console.error("Error initializing Gemini model:", error);
-      throw new Error("Failed to initialize AI model");
-    }
-  };
-
-  // Perform fact checking with Gemini
-  const performFactCheck = async (userInput, model) => {
-    try {
-      const factCheckPrompt = `Determine if the following statement is factually correct. Reply ONLY with one of the following labels: \n\n"True Fact", "False Fact", "Partially True Fact", "Partially False Fact".\n\nStatement: "${userInput}"`;
-      const factCheckResult = await model.generateContent(factCheckPrompt);
-      return factCheckResult.response.text().trim();
-    } catch (error) {
-      console.error("Error during fact check:", error);
-      throw new Error("Fact check failed");
-    }
-  };
-
-  // Get response from Gemini
-  const getGeminiResponse = async (userInput, model) => {
-    try {
-      const chat = model.startChat();
-      const result = await chat.sendMessage(userInput);
-      return result.response.text();
-    } catch (error) {
-      console.error("Error getting Gemini response:", error);
-      throw new Error("Failed to get AI response");
-    }
-  };
-
   const handleMessageSend = async () => {
     if (input.trim() === '') return;
   
     const userMessage = { text: input, sender: 'user' };
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
+    const userInput = input;
     setInput('');
     setIsLoading(true);
   
@@ -137,45 +92,43 @@ function Chatbot() {
     setChats(updatedChats);
   
     try {
-      // Initialize model
-      const model = initializeGeminiModel();
+      // Initialize the model with safety settings
+      const safetySettings = [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+      ];
+      const generationConfig = { maxOutputTokens: 200, temperature: 0.9, topP: 0.1, topK: 16 };
       
-      // Add a loading message
+      const genAI = new GoogleGenerativeAI(API_KEY);
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash", 
+        safetySettings, 
+        generationConfig 
+      });
+      
+      // Create a simple loading message
       const loadingMessage = { text: "Thinking...", sender: 'bot', isLoading: true };
       setMessages([...updatedMessages, loadingMessage]);
       
-      // Step 1: Perform fact check
-      const factCheckResponse = await performFactCheck(input, model);
+      // Try a simpler approach - just get a response for the input
+      const chat = model.startChat();
+      const result = await chat.sendMessage(userInput);
+      const botResponse = await result.response.text();
       
-      // Step 2: Get normal response
-      const botResponse = await getGeminiResponse(input, model);
-      
-      // Remove loading message and add responses
-      const factCheckMessage = { text: factCheckResponse, sender: 'bot' };
+      // Remove loading message and add response
       const botMessage = { text: botResponse, sender: 'bot' };
-      
-      const updatedMessagesWithBot = [...updatedMessages, factCheckMessage, botMessage];
-      setMessages(updatedMessagesWithBot);
+      const finalMessages = [...updatedMessages, botMessage];
+      setMessages(finalMessages);
       
       const updatedChatsWithBot = chats.map(chat =>
-        chat.id === activeChat ? { ...chat, messages: updatedMessagesWithBot } : chat
+        chat.id === activeChat ? { ...chat, messages: finalMessages } : chat
       );
       setChats(updatedChatsWithBot);
       
     } catch (error) {
-      console.error("Detailed error:", error.message, error.stack);
+      console.error("Error with AI response:", error);
       
-      // Create specific error message based on error type
-      let errorText = "Oops! Something went wrong. Please try again.";
-      if (error.message.includes("API key")) {
-        errorText = "Invalid or missing API key. Please check your configuration.";
-      } else if (error.message.includes("network")) {
-        errorText = "Network error. Please check your connection and try again.";
-      } else if (error.message.includes("quota")) {
-        errorText = "API quota exceeded. Please try again later.";
-      }
-      
-      const errorMessage = { text: errorText, sender: 'bot' };
+      const errorMessage = { text: "Oops! Something went wrong. Please try again.", sender: 'bot' };
       setMessages([...updatedMessages, errorMessage]);
       
       const updatedChatsWithError = chats.map(chat =>
@@ -331,11 +284,6 @@ function Chatbot() {
       {/* Chat container */}
       <div className="chat-container">
         <h1 className="desktop-title">AI Chatbot</h1>
-        {API_KEY === "YOUR_API_KEY_HERE" && (
-          <div className="api-key-warning">
-            Please set your API key in the .env file as REACT_APP_GEMINI_API_KEY
-          </div>
-        )}
         <div className="chat-box">
           {messages.length === 0 ? (
             <div className="empty-message">No messages yet... Type a message to start chatting!</div>

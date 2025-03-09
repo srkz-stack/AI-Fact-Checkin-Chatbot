@@ -807,22 +807,6 @@ input:checked + .slider:before {
     font-size: 16px;
   }
 }
-/* API key warning */
-.api-key-warning {
-  background-color: #ffcccc;
-  color: #cc0000;
-  padding: 10px;
-  margin-bottom: 10px;
-  border-radius: 5px;
-  text-align: center;
-  font-weight: bold;
-}
-
-.dark-mode .api-key-warning {
-  background-color: #660000;
-  color: #ffcccc;
-}
-
 /* Loading message styling */
 .message.loading {
   opacity: 0.7;
