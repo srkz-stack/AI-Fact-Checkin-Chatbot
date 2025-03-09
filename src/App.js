@@ -20,7 +20,7 @@ function Chatbot() {
 
   // API key should be stored in environment variables
   // For development, create a .env file with: REACT_APP_GEMINI_API_KEY=your_key_here
-  const API_KEY = process.env.REACT_APP_GEMINI_API_KEY || "YOUR_API_KEY_HERE";
+  const API_KEY = process.env.REACT_APP_GEMINI_API_KEY || "AIzaSyB6VIg08vrxlVP0TvIsItpF6JIawed7R54";
 
   const toggleTheme = () => {
     setIsDarkMode((prevState) => !prevState);
