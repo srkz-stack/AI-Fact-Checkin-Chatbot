@@ -10,6 +10,12 @@ The AI Fact-Checking Chatbot is a smart chatbot that verifies the truthfulness o
 - Fast & Responsive 
 - Dark Mode Support 
 
+## Techonologies Used 
+- HTML
+- CSS
+- JAVA SCRIPT
+- API KEY
+  
 ## Installation
 
 If you want to run this project locally, follow these steps:
@@ -44,8 +50,8 @@ yarn start
 
 ## Credits
 
-This project is created by team 
-1. Akshaya S
+This project is created by TEAM TRIFECTA
+1. Akshaya S 
 2. Priyadharsan S
 3. Hitesh Kumar S
 
