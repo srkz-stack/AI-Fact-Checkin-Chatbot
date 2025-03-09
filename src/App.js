@@ -92,7 +92,7 @@ function Chatbot() {
       ];
       const generationConfig = { maxOutputTokens: 200, temperature: 0.9, topP: 0.1, topK: 16 };
   
-      const genAI = new GoogleGenerativeAI(process.env.REACT_APP_GEMINI_API_KEY);
+      const genAI = new GoogleGenerativeAI("AIzaSyB6VIg08vrxlVP0TvIsItpF6JIawed7R54");
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings, generationConfig });
   
       // Step 1: Check if it's a true, false, partially true, or partially false fact
