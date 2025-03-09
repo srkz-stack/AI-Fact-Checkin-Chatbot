@@ -807,3 +807,65 @@ input:checked + .slider:before {
     font-size: 16px;
   }
 }
+/* API key warning */
+.api-key-warning {
+  background-color: #ffcccc;
+  color: #cc0000;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.dark-mode .api-key-warning {
+  background-color: #660000;
+  color: #ffcccc;
+}
+
+/* Loading message styling */
+.message.loading {
+  opacity: 0.7;
+}
+
+.loading-indicator {
+  display: flex;
+  justify-content: center;
+}
+
+.loading-indicator span {
+  animation: loadingDots 1.4s infinite ease-in-out;
+  background-color: #ccc;
+  border-radius: 50%;
+  display: inline-block;
+  height: 8px;
+  width: 8px;
+  margin: 0 3px;
+}
+
+.loading-indicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.loading-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes loadingDots {
+  0%, 80%, 100% { 
+    transform: scale(0);
+  } 
+  40% { 
+    transform: scale(1.0);
+  }
+}
+
+/* Disabled button styling */
+.send-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

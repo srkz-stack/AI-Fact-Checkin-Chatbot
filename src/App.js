@@ -14,8 +14,13 @@ function Chatbot() {
   const [editedTitle, setEditedTitle] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // API key should be stored in environment variables
+  // For development, create a .env file with: REACT_APP_GEMINI_API_KEY=your_key_here
+  const API_KEY = process.env.REACT_APP_GEMINI_API_KEY || "YOUR_API_KEY_HERE";
 
   const toggleTheme = () => {
     setIsDarkMode((prevState) => !prevState);
@@ -72,6 +77,51 @@ function Chatbot() {
     }
   }, [messages]);
 
+  // Initialize Gemini AI model with safety settings
+  const initializeGeminiModel = () => {
+    try {
+      const safetySettings = [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+      ];
+      const generationConfig = { maxOutputTokens: 200, temperature: 0.9, topP: 0.1, topK: 16 };
+      
+      const genAI = new GoogleGenerativeAI(API_KEY);
+      return genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash", 
+        safetySettings, 
+        generationConfig 
+      });
+    } catch (error) {
+      console.error("Error initializing Gemini model:", error);
+      throw new Error("Failed to initialize AI model");
+    }
+  };
+
+  // Perform fact checking with Gemini
+  const performFactCheck = async (userInput, model) => {
+    try {
+      const factCheckPrompt = `Determine if the following statement is factually correct. Reply ONLY with one of the following labels: \n\n"True Fact", "False Fact", "Partially True Fact", "Partially False Fact".\n\nStatement: "${userInput}"`;
+      const factCheckResult = await model.generateContent(factCheckPrompt);
+      return factCheckResult.response.text().trim();
+    } catch (error) {
+      console.error("Error during fact check:", error);
+      throw new Error("Fact check failed");
+    }
+  };
+
+  // Get response from Gemini
+  const getGeminiResponse = async (userInput, model) => {
+    try {
+      const chat = model.startChat();
+      const result = await chat.sendMessage(userInput);
+      return result.response.text();
+    } catch (error) {
+      console.error("Error getting Gemini response:", error);
+      throw new Error("Failed to get AI response");
+    }
+  };
+
   const handleMessageSend = async () => {
     if (input.trim() === '') return;
   
@@ -79,6 +129,7 @@ function Chatbot() {
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setInput('');
+    setIsLoading(true);
   
     const updatedChats = chats.map(chat =>
       chat.id === activeChat ? { ...chat, messages: updatedMessages } : chat
@@ -86,46 +137,53 @@ function Chatbot() {
     setChats(updatedChats);
   
     try {
-      const safetySettings = [
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-      ];
-      const generationConfig = { maxOutputTokens: 200, temperature: 0.9, topP: 0.1, topK: 16 };
-  
-      const genAI = new GoogleGenerativeAI("AIzaSyB6VIg08vrxlVP0TvIsItpF6JIawed7R54");
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings, generationConfig });
-  
-      // Step 1: Check if it's a true, false, partially true, or partially false fact
-      const factCheckPrompt = `Determine if the following statement is factually correct. Reply ONLY with one of the following labels: \n\n"True Fact", "False Fact", "Partially True Fact", "Partially False Fact".\n\nStatement: "${input}"`;
-      const factCheckResult = await model.generateContent(factCheckPrompt);
-      const factCheckResponse = await factCheckResult.response.text().trim();
-  
-      // Step 2: Get the normal response
-      const chat = model.startChat();
-      const result = await chat.sendMessage(input);
-      const botResponse = await result.response.text();
-  
-      // Append both fact check and response
+      // Initialize model
+      const model = initializeGeminiModel();
+      
+      // Add a loading message
+      const loadingMessage = { text: "Thinking...", sender: 'bot', isLoading: true };
+      setMessages([...updatedMessages, loadingMessage]);
+      
+      // Step 1: Perform fact check
+      const factCheckResponse = await performFactCheck(input, model);
+      
+      // Step 2: Get normal response
+      const botResponse = await getGeminiResponse(input, model);
+      
+      // Remove loading message and add responses
       const factCheckMessage = { text: factCheckResponse, sender: 'bot' };
       const botMessage = { text: botResponse, sender: 'bot' };
-  
+      
       const updatedMessagesWithBot = [...updatedMessages, factCheckMessage, botMessage];
       setMessages(updatedMessagesWithBot);
-  
+      
       const updatedChatsWithBot = chats.map(chat =>
         chat.id === activeChat ? { ...chat, messages: updatedMessagesWithBot } : chat
       );
       setChats(updatedChatsWithBot);
-  
+      
     } catch (error) {
-      console.error("Error with AI response:", error);
-      const errorMessage = { text: "Oops! Something went wrong. Please try again.", sender: 'bot' };
+      console.error("Detailed error:", error.message, error.stack);
+      
+      // Create specific error message based on error type
+      let errorText = "Oops! Something went wrong. Please try again.";
+      if (error.message.includes("API key")) {
+        errorText = "Invalid or missing API key. Please check your configuration.";
+      } else if (error.message.includes("network")) {
+        errorText = "Network error. Please check your connection and try again.";
+      } else if (error.message.includes("quota")) {
+        errorText = "API quota exceeded. Please try again later.";
+      }
+      
+      const errorMessage = { text: errorText, sender: 'bot' };
       setMessages([...updatedMessages, errorMessage]);
       
       const updatedChatsWithError = chats.map(chat =>
         chat.id === activeChat ? { ...chat, messages: [...updatedMessages, errorMessage] } : chat
       );
       setChats(updatedChatsWithError);
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -273,13 +331,22 @@ function Chatbot() {
       {/* Chat container */}
       <div className="chat-container">
         <h1 className="desktop-title">AI Chatbot</h1>
+        {API_KEY === "YOUR_API_KEY_HERE" && (
+          <div className="api-key-warning">
+            Please set your API key in the .env file as REACT_APP_GEMINI_API_KEY
+          </div>
+        )}
         <div className="chat-box">
           {messages.length === 0 ? (
             <div className="empty-message">No messages yet... Type a message to start chatting!</div>
           ) : (
             messages.map((message, index) => (
-              <div key={index} className={`message ${message.sender}`}>
-                {message.sender === 'bot' ? (
+              <div key={index} className={`message ${message.sender} ${message.isLoading ? 'loading' : ''}`}>
+                {message.isLoading ? (
+                  <div className="loading-indicator">
+                    <span>.</span><span>.</span><span>.</span>
+                  </div>
+                ) : message.sender === 'bot' ? (
                   <ReactMarkdown>{message.text}</ReactMarkdown>
                 ) : (
                   message.text
@@ -302,11 +369,13 @@ function Chatbot() {
                   handleMessageSend();
                 }
               }}
+              disabled={isLoading}
             />
             <button 
-              className="send-button" 
+              className={`send-button ${isLoading ? 'disabled' : ''}`} 
               onClick={handleMessageSend}
               aria-label="Send message"
+              disabled={isLoading}
             >
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M22 2L11 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
